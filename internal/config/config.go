@@ -1,3 +1,6 @@
+// Package config gestiona la configuración de la herramienta a través de banderas (flags) de línea de comandos.
+// Expone una única función pública, FromFlags, que parsea los argumentos y devuelve una Config validada.
+// Al usar un flag.FlagSet local en lugar del global, el paquete es completamente testeable en aislamiento.
 package config
 
 import (
@@ -7,27 +10,36 @@ import (
 	"time"
 )
 
-// Config holds all runtime configuration parsed from CLI flags.
+// Config contiene todos los parámetros de ejecución de recolector.
+// Se construye una sola vez al inicio del programa y se pasa por valor a los constructores.
 type Config struct {
-	Output   string        // "stdout" | "file" | "post"
-	FilePath string        // used when Output == "file"
-	Endpoint string        // used when Output == "post"
-	Token    string        // Bearer token for HTTP POST, may be empty
-	Pretty   bool          // pretty-print JSON
-	Interval time.Duration // 0 = run once
+	// Output define el destino de los datos recolectados: "stdout", "file" o "post".
+	Output string
+	// FilePath es la ruta del archivo de salida; requerido cuando Output == "file".
+	FilePath string
+	// Endpoint es la URL del servidor receptor; requerido cuando Output == "post".
+	Endpoint string
+	// Token es el Bearer token para autenticación HTTP; puede estar vacío.
+	Token string
+	// Pretty activa el formato JSON indentado (2 espacios) en la salida.
+	Pretty bool
+	// Interval es el tiempo entre ciclos de recolección. Cero significa una sola ejecución.
+	Interval time.Duration
 }
 
-// FromFlags parses args (os.Args[1:]) using a local FlagSet and returns a validated Config.
+// FromFlags parsea args (normalmente os.Args[1:]) con un FlagSet local
+// y devuelve una Config validada. Retorna error si alguna combinación de
+// banderas es inválida (por ejemplo, -output file sin -file).
 func FromFlags(args []string) (Config, error) {
 	fs := flag.NewFlagSet("recolector", flag.ContinueOnError)
 
 	var (
-		output   = fs.String("output", "stdout", `Output mode: stdout | file | post`)
-		filePath = fs.String("file", "", "File path for file output")
-		endpoint = fs.String("endpoint", "", "HTTP endpoint for POST output")
-		token    = fs.String("token", "", "Bearer token for POST auth")
-		pretty   = fs.Bool("pretty", false, "Pretty-print JSON")
-		interval = fs.Int("interval", 0, "Repeat collection every N seconds (0 = run once)")
+		output   = fs.String("output", "stdout", `Destino de salida: stdout | file | post`)
+		filePath = fs.String("file", "", "Ruta del archivo cuando -output=file")
+		endpoint = fs.String("endpoint", "", "URL del endpoint cuando -output=post")
+		token    = fs.String("token", "", "Bearer token para autenticación HTTP POST")
+		pretty   = fs.Bool("pretty", false, "Formatear el JSON con indentación")
+		interval = fs.Int("interval", 0, "Repetir la recolección cada N segundos (0 = una sola vez)")
 	)
 
 	if err := fs.Parse(args); err != nil {
@@ -40,6 +52,7 @@ func FromFlags(args []string) (Config, error) {
 		Endpoint: *endpoint,
 		Token:    *token,
 		Pretty:   *pretty,
+		// Convierte segundos enteros a time.Duration para uso interno.
 		Interval: time.Duration(*interval) * time.Second,
 	}
 
@@ -50,27 +63,30 @@ func FromFlags(args []string) (Config, error) {
 	return cfg, nil
 }
 
+// validate comprueba que la combinación de campos sea coherente.
+// Las reglas son: "file" requiere FilePath no vacío; "post" requiere un Endpoint
+// con URL válida; Interval no puede ser negativo.
 func (c Config) validate() error {
 	switch c.Output {
 	case "stdout":
-		// nothing required
+		// No se requiere ningún campo adicional.
 	case "file":
 		if c.FilePath == "" {
-			return fmt.Errorf("output=file requires -file <path>")
+			return fmt.Errorf("output=file requiere -file <ruta>")
 		}
 	case "post":
 		if c.Endpoint == "" {
-			return fmt.Errorf("output=post requires -endpoint <url>")
+			return fmt.Errorf("output=post requiere -endpoint <url>")
 		}
 		if _, err := url.ParseRequestURI(c.Endpoint); err != nil {
-			return fmt.Errorf("invalid -endpoint URL %q: %w", c.Endpoint, err)
+			return fmt.Errorf("URL de -endpoint inválida %q: %w", c.Endpoint, err)
 		}
 	default:
-		return fmt.Errorf("unknown output mode %q: must be stdout, file, or post", c.Output)
+		return fmt.Errorf("modo de salida desconocido %q: debe ser stdout, file o post", c.Output)
 	}
 
 	if c.Interval < 0 {
-		return fmt.Errorf("-interval must be >= 0")
+		return fmt.Errorf("-interval debe ser >= 0")
 	}
 
 	return nil
