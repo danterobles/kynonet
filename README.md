@@ -1,32 +1,32 @@
-# recolector kynonet 
+# recolector kynonet
 
-Utilería CLI multiplataforma escrita en Go para recolectar métricas del sistema operativo y exportarlas en formato JSON.
+Cross-platform CLI utility written in Go to collect operating system metrics and export them in JSON format.
 
-Compatible con **macOS**, **Linux** y **Windows** (amd64 / arm64).
+Compatible with **macOS**, **Linux**, and **Windows** (amd64 / arm64).
 
-## ¿Qué recolecta?
+## What does it collect?
 
-| Categoría | Datos |
-|-----------|-------|
-| **Host** | Hostname, sistema operativo, plataforma, arquitectura del kernel, UUID del equipo |
-| **Memoria** | Total, en uso, disponible, porcentaje de uso |
-| **CPU** | Modelo, núcleos físicos, hilos lógicos, frecuencia (MHz) |
-| **Discos** | Por partición: dispositivo, punto de montaje, sistema de archivos, total/usado/libre, porcentaje |
-| **Procesos** | PID, nombre, memoria RSS, porcentaje de CPU |
+| Category | Data |
+|----------|------|
+| **Host** | Hostname, operating system, platform, kernel architecture, machine UUID |
+| **Memory** | Total, used, available, usage percentage |
+| **CPU** | Model, physical cores, logical threads, frequency (MHz) |
+| **Disks** | Per partition: device, mount point, filesystem type, total/used/free, percentage |
+| **Processes** | PID, name, RSS memory, CPU percentage |
 
-## Modos de salida
+## Output modes
 
-| Flag | Descripción |
+| Flag | Description |
 |------|-------------|
-| `-output stdout` | Imprime el JSON en la consola *(predeterminado)* |
-| `-output file -file <ruta>` | Escribe el JSON en un archivo (sobreescribe en cada ciclo) |
-| `-output post -endpoint <url>` | Envía el JSON vía HTTP POST al endpoint indicado |
+| `-output stdout` | Prints JSON to the console *(default)* |
+| `-output file -file <path>` | Writes JSON to a file (overwrites on each cycle) |
+| `-output post -endpoint <url>` | Sends JSON via HTTP POST to the specified endpoint |
 
-## Instalación
+## Installation
 
-### Desde el código fuente
+### From source
 
-Requiere Go 1.21 o superior.
+Requires Go 1.21 or higher.
 
 ```bash
 git clone https://github.com/danterobles/recolector.git
@@ -34,7 +34,7 @@ cd recolector
 go build -o recolector ./cmd/recolector
 ```
 
-### Compilación cruzada
+### Cross-compilation
 
 ```bash
 # Linux (x86_64)
@@ -47,40 +47,40 @@ GOOS=windows GOARCH=amd64 go build -o recolector.exe ./cmd/recolector
 GOOS=darwin GOARCH=arm64 go build -o recolector-darwin ./cmd/recolector
 ```
 
-## Uso
+## Usage
 
 ```bash
-# Una sola recolección a consola con formato legible
+# Single collection to console with readable formatting
 ./recolector -pretty
 
-# Guardar en archivo
+# Save to file
 ./recolector -output file -file /tmp/snapshot.json
 
-# Enviar a un servidor de recolección con token de autenticación
-./recolector -output post -endpoint http://servidor:8080/collect -token mi-token-secreto
+# Send to a collection server with authentication token
+./recolector -output post -endpoint http://server:8080/collect -token my-secret-token
 
-# Recolección continua cada 10 segundos (Ctrl-C para detener)
-./recolector -interval 10 -output file -file /var/log/metricas.json
+# Continuous collection every 10 seconds (Ctrl-C to stop)
+./recolector -interval 10 -output file -file /var/log/metrics.json
 ```
 
-### Flags completos
+### All flags
 
-| Flag | Tipo | Predeterminado | Descripción |
-|------|------|---------------|-------------|
-| `-output` | string | `stdout` | Destino: `stdout`, `file`, `post` |
-| `-file` | string | — | Ruta del archivo (requerido con `-output file`) |
-| `-endpoint` | string | — | URL del endpoint (requerido con `-output post`) |
-| `-token` | string | — | Bearer token para autenticación HTTP |
-| `-pretty` | bool | `false` | Formato JSON indentado (2 espacios) |
-| `-interval` | int | `0` | Segundos entre recolecciones; `0` = una sola vez |
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `-output` | string | `stdout` | Destination: `stdout`, `file`, `post` |
+| `-file` | string | — | File path (required with `-output file`) |
+| `-endpoint` | string | — | Endpoint URL (required with `-output post`) |
+| `-token` | string | — | Bearer token for HTTP authentication |
+| `-pretty` | bool | `false` | Indented JSON output (2 spaces) |
+| `-interval` | int | `0` | Seconds between collections; `0` = run once |
 
-## Ejemplo de salida
+## Output example
 
 ```json
 {
   "collectedAt": "2026-04-14T22:00:00Z",
   "host": {
-    "hostname": "mi-servidor",
+    "hostname": "my-server",
     "os": "linux",
     "platform": "alma",
     "arch": "x86_64",
@@ -120,20 +120,20 @@ GOOS=darwin GOARCH=arm64 go build -o recolector-darwin ./cmd/recolector
 }
 ```
 
-## Arquitectura
+## Architecture
 
 ```
 recolector/
-├── cmd/recolector/        # Punto de entrada CLI, wiring y loop de intervalo
+├── cmd/recolector/        # CLI entry point, wiring, and interval loop
 ├── internal/
-│   ├── config/            # Parseo y validación de flags (FromFlags)
-│   ├── collector/         # Recolección de métricas del SO (5 sub-colectores)
-│   └── exporter/          # Exportadores: stdout, file, HTTP POST
+│   ├── config/            # Flag parsing and validation (FromFlags)
+│   ├── collector/         # OS metrics collection (5 sub-collectors)
+│   └── exporter/          # Exporters: stdout, file, HTTP POST
 ├── go.mod
 └── go.sum
 ```
 
-Las dos interfaces centrales son:
+The two core interfaces are:
 
 ```go
 type Collector interface {
@@ -145,35 +145,35 @@ type Exporter interface {
 }
 ```
 
-`main.go` conecta todo: parsea flags → construye el Exporter → instancia el Collector → ejecuta `run()`. La función `run()` acepta interfaces, lo que la hace testeable sin llamadas reales al sistema operativo.
+`main.go` wires everything together: parses flags → builds the Exporter → instantiates the Collector → calls `run()`. The `run()` function accepts interfaces, making it testable without real OS calls.
 
-## Dependencias
+## Dependencies
 
-| Paquete | Versión | Uso |
-|---------|---------|-----|
-| `github.com/shirou/gopsutil/v3` | v3.24.5 | Métricas de CPU, memoria, disco, procesos y host |
-| `github.com/denisbrodbeck/machineid` | v1.0.1 | UUID estable del hardware del equipo |
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `github.com/shirou/gopsutil/v3` | v3.24.5 | Cross-platform CPU, memory, disk, process, and host metrics |
+| `github.com/denisbrodbeck/machineid` | v1.0.1 | Stable hardware UUID for the machine |
 
-## Desarrollo
+## Development
 
 ```bash
-# Ejecutar en modo desarrollo (recomendado en macOS)
+# Run in development mode (recommended on macOS)
 go run ./cmd/recolector -pretty
 
-# Tests con detector de condiciones de carrera
+# Tests with race condition detector
 go test -race ./...
 
-# Verificación estática
+# Static analysis
 go vet ./...
 
-# Limpiar dependencias
+# Clean up dependencies
 go mod tidy
 ```
 
-> **Nota macOS:** El binario compilado requiere firma de código para enumerar
-> procesos del sistema. Durante el desarrollo usar `go run`. En producción,
-> firmar con el entitlement `com.apple.security.get-task-allow`.
+> **macOS note:** The compiled binary requires code signing to enumerate system
+> processes. Use `go run` during development. In production, sign the binary
+> with the `com.apple.security.get-task-allow` entitlement.
 
-## Licencia
+## License
 
 MIT

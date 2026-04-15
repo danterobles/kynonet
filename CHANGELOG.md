@@ -1,87 +1,87 @@
 # Changelog
 
-Todos los cambios notables de este proyecto están documentados en este archivo.
+All notable changes to this project are documented in this file.
 
-El formato sigue [Keep a Changelog](https://keepachangelog.com/es/1.0.0/)
-y el proyecto adhiere a [Semantic Versioning](https://semver.org/lang/es/).
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
+and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
 ## [0.1.0] - 2026-04-14
 
-### Versión inicial — implementación completa del núcleo
+### Initial release — complete core implementation
 
-Primera versión funcional de `recolector`. Incluye la arquitectura completa de recolección y exportación de métricas del sistema operativo.
+First functional version of `recolector`. Includes the full collection and export architecture for operating system metrics.
 
 ---
 
-### Nuevos paquetes
+### New packages
 
 #### `cmd/recolector`
-- Punto de entrada de la herramienta CLI.
-- Parseo de flags vía `config.FromFlags`.
-- Función `buildExporter`: fábrica que selecciona el exportador según `-output`.
-- Función `run`: loop de recolección con soporte para ejecución única e intervalo configurable. Acepta interfaces para ser testeable sin acceso al sistema operativo.
-- Graceful shutdown mediante `signal.NotifyContext` con `SIGINT` y `SIGTERM`.
+- CLI tool entry point.
+- Flag parsing via `config.FromFlags`.
+- `buildExporter` function: factory that selects the exporter based on `-output`.
+- `run` function: collection loop with support for single execution and configurable interval. Accepts interfaces to be testable without OS access.
+- Graceful shutdown via `signal.NotifyContext` with `SIGINT` and `SIGTERM`.
 
 #### `internal/config`
-- Struct `Config` con todos los parámetros de ejecución: `Output`, `FilePath`, `Endpoint`, `Token`, `Pretty`, `Interval`.
-- Función `FromFlags(args []string) (Config, error)`: parseo con `flag.FlagSet` local (testeable en aislamiento).
-- Validación de combinaciones de flags: `file` requiere `-file`; `post` requiere `-endpoint` con URL válida.
-- Conversión de segundos enteros a `time.Duration` para el campo `Interval`.
+- `Config` struct with all runtime parameters: `Output`, `FilePath`, `Endpoint`, `Token`, `Pretty`, `Interval`.
+- `FromFlags(args []string) (Config, error)` function: parsing with a local `flag.FlagSet` (independently testable).
+- Flag combination validation: `file` requires `-file`; `post` requires `-endpoint` with a valid URL.
+- Integer-to-`time.Duration` conversion for the `Interval` field.
 
 #### `internal/collector`
-- Interfaz `Collector` con método `Collect(ctx) (*SystemInfo, error)`.
-- Tipo `SystemInfo`: estructura raíz JSON con campos `CollectedAt`, `Host`, `Memory`, `CPU`, `Disks`, `Processes`.
-- Tipos de datos: `HostInfo`, `MemoryInfo`, `CPUInfo`, `DiskInfo`, `ProcessInfo`.
-- Struct `SystemCollector` (única exportación del paquete): orquesta los cinco sub-colectores privados.
-- Función `New() *SystemCollector`: constructor sin parámetros.
-- `collectHost`: recopila hostname, OS, plataforma, arquitectura del kernel y machine UUID.
-- `collectMemory`: lee total, usado, disponible y porcentaje de la memoria virtual.
-- `collectCPU`: obtiene núcleos físicos, hilos lógicos, modelo y frecuencia base.
-- `collectDisks`: enumera particiones físicas y sus estadísticas de uso; omite particiones inaccesibles.
-- `collectProcesses`: lista todos los procesos en ejecución con PID, nombre, RSS y porcentaje de CPU; manejo "soft" de errores por proceso.
-- Función utilitaria privada `round2`: redondea porcentajes a 2 decimales.
+- `Collector` interface with `Collect(ctx) (*SystemInfo, error)` method.
+- `SystemInfo` type: root JSON structure with fields `CollectedAt`, `Host`, `Memory`, `CPU`, `Disks`, `Processes`.
+- Data types: `HostInfo`, `MemoryInfo`, `CPUInfo`, `DiskInfo`, `ProcessInfo`.
+- `SystemCollector` struct (the only exported type from the package): orchestrates the five private sub-collectors.
+- `New() *SystemCollector` constructor: no parameters required.
+- `collectHost`: gathers hostname, OS, platform, kernel architecture, and machine UUID.
+- `collectMemory`: reads total, used, available, and percentage of virtual memory.
+- `collectCPU`: obtains physical cores, logical threads, model name, and base frequency.
+- `collectDisks`: enumerates physical partitions and their usage stats; skips inaccessible partitions.
+- `collectProcesses`: lists all running processes with PID, name, RSS memory, and CPU percentage; soft error handling per process.
+- Private utility function `round2`: rounds percentage values to 2 decimal places.
 
 #### `internal/exporter`
-- Interfaz `Exporter` con método `Export(ctx, *SystemInfo) error`.
-- `StdoutExporter`: escribe JSON en un `io.Writer` inyectable (por defecto `os.Stdout`). Opción `WithWriter` para pruebas.
-- `FileExporter`: escribe JSON en un archivo del sistema con permisos `0644`; sobreescribe en cada ciclo.
-- `HTTPExporter`: envía JSON vía HTTP POST. Soporta token Bearer, timeout configurable (`WithHTTPTimeout`) y cliente inyectable (`WithHTTPClient`). Drena el cuerpo de la respuesta para reutilización de conexiones TCP. Retorna error en respuestas HTTP >= 400.
+- `Exporter` interface with `Export(ctx, *SystemInfo) error` method.
+- `StdoutExporter`: writes JSON to an injectable `io.Writer` (default `os.Stdout`). `WithWriter` option for testing.
+- `FileExporter`: writes JSON to a file with `0644` permissions; overwrites on each cycle.
+- `HTTPExporter`: sends JSON via HTTP POST. Supports Bearer token, configurable timeout (`WithHTTPTimeout`), and injectable client (`WithHTTPClient`). Drains the response body for TCP connection reuse. Returns an error on HTTP responses >= 400.
 
 ---
 
-### Dependencias externas añadidas
+### External dependencies added
 
-| Paquete | Versión | Propósito |
-|---------|---------|-----------|
-| `github.com/shirou/gopsutil/v3` | v3.24.5 | Métricas cross-platform de CPU, memoria, disco, procesos y host |
-| `github.com/denisbrodbeck/machineid` | v1.0.1 | UUID estable del hardware del equipo |
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `github.com/shirou/gopsutil/v3` | v3.24.5 | Cross-platform CPU, memory, disk, process, and host metrics |
+| `github.com/denisbrodbeck/machineid` | v1.0.1 | Stable hardware UUID for the machine |
 
-### Plataformas verificadas
+### Verified platforms
 
-| Sistema | Arquitectura | Estado |
-|---------|-------------|--------|
-| macOS (Darwin) | arm64 | ✓ Compilación y ejecución verificadas |
-| Linux | amd64 | ✓ Compilación cruzada verificada |
-| Windows | amd64 | ✓ Compilación cruzada verificada |
+| OS | Architecture | Status |
+|----|-------------|--------|
+| macOS (Darwin) | arm64 | ✓ Build and execution verified |
+| Linux | amd64 | ✓ Cross-compilation verified |
+| Windows | amd64 | ✓ Cross-compilation verified |
 
-### Tests incluidos
+### Tests included
 
-| Paquete | Cobertura |
-|---------|-----------|
-| `internal/config` | 9 casos tabla-driven: defaults, modos válidos, errores de validación, conversión de intervalo |
-| `internal/collector` | Test de integración con OS real: verifica hostname, cores, memoria total, presencia de discos |
-| `internal/exporter` | 7 tests unitarios: stdout compacto/pretty, escritura y sobreescritura de archivo, HTTP con token, HTTP sin token, HTTP error 500 |
-| `cmd/recolector` | 3 tests con mocks: ejecución única, loop con cancelación de contexto, propagación de errores del colector |
+| Package | Coverage |
+|---------|----------|
+| `internal/config` | 9 table-driven cases: defaults, valid modes, validation errors, interval conversion |
+| `internal/collector` | Integration test with real OS: verifies hostname, cores, total memory, presence of disks |
+| `internal/exporter` | 7 unit tests: compact/pretty stdout, file write and overwrite, HTTP with token, HTTP without token, HTTP 500 error |
+| `cmd/recolector` | 3 tests with mocks: single execution, loop with context cancellation, collector error propagation |
 
 ---
 
-## [Sin publicar]
+## [Unreleased]
 
-### Mejoras planificadas
-- Firma de código para macOS en modo binario compilado.
-- Flag `-collect-timeout` para establecer un timeout máximo por ciclo de recolección.
-- Salida en formato CSV además de JSON.
-- Filtro de procesos por nombre o PID mínimo.
-- Métricas de red (interfaces, bytes enviados/recibidos).
+### Planned improvements
+- Code signing support for macOS compiled binary.
+- `-collect-timeout` flag to set a maximum timeout per collection cycle.
+- CSV output format in addition to JSON.
+- Process filtering by name or minimum PID.
+- Network metrics (interfaces, bytes sent/received).
