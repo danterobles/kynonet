@@ -1,4 +1,4 @@
-# recolector kynonet (Windows/Linux/macOS)
+# recolector kynonet 
 
 Utilería CLI multiplataforma escrita en Go para recolectar métricas del sistema operativo y exportarlas en formato JSON.
 
